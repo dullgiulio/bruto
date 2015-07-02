@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-    "github.com/dullgiulio/bruto"
+	"github.com/dullgiulio/bruto"
 )
 
 func main() {
