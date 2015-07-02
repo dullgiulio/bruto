@@ -16,7 +16,7 @@ type encrypter struct {
 	pk   rsa.PublicKey
 	// For JSON unmarshalling
 	Mod string `json:"publicKeyModulus"`
-	// For JSON unmarshalling:w
+	// For JSON unmarshalling
 	Exp string `json:"exponent"`
 }
 

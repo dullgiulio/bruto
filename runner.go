@@ -75,10 +75,15 @@ func (r *Runner) Run(w io.Writer, workers int) {
 	for {
 		select {
 		case s := <-r.sessions:
-			if s.err != nil && s.err != errSessionOver {
+			// Currently we ignore the signal that a worker is ready
+			if s.err == nil {
+				break
+			}
+			if s.err != errSessionOver {
 				// TODO: Detect the error rate here. If high, don't start new workes, exit.
 				fmt.Printf("Error: %s\n", s.err)
 			}
+			// Remove a worker from the pool if it had an error and it's dead
 			r.pool.del(s)
 			// If no more sessions are working
 			if !r.pool.alive() {
@@ -87,7 +92,7 @@ func (r *Runner) Run(w io.Writer, workers int) {
 					close(r.broken)
 					return
 				}
-				// Start up some more sessions to finish.
+				// Start up some more sessions to finish the logins
 				r.startWorkers(workers)
 			}
 		case <-r.pwdOver:

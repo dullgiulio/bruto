@@ -13,6 +13,7 @@ func (l *login) String() string {
 
 type logins chan login
 
+// TODO: Get from files according to conf
 var usernames = []string{"giulio.iotti", "giotti", "iotti.giulio"}
 var passwords = []string{"password", "12345", "test123", "hello321"}
 
