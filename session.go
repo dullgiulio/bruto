@@ -1,4 +1,4 @@
-package main
+package bruto
 
 import (
 	"encoding/json"
@@ -139,18 +139,18 @@ func (s *session) try(l login) error {
 	return nil
 }
 
-func (s *session) run() {
+func (s *session) run() error {
 	if err := s.init(); err != nil {
-		s.fail(err)
-	} else {
-		s.ready()
+		return s.fail(err)
 	}
+	// Signal that this session is ready to do real work
+	s.ready()
+	// Fetch login pairs and try them
 	for l := range s.logins {
 		if err := s.try(l); err != nil {
-			s.fail(err)
-			return
+			return s.fail(err)
 		}
 	}
 	// Signal that this session has terminated
-	s.fail(errSessionOver)
+	return s.fail(errSessionOver)
 }

@@ -1,19 +1,19 @@
-package main
+package bruto
 
-type spool map[*session]struct{}
+type pool map[*session]struct{}
 
-func newPool() spool {
-	return spool(make(map[*session]struct{}))
+func newPool() pool {
+	return pool(make(map[*session]struct{}))
 }
 
-func (s spool) add(ses *session) {
-	s[ses] = struct{}{}
+func (p pool) add(ses *session) {
+	p[ses] = struct{}{}
 }
 
-func (s spool) del(ses *session) {
-	delete(s, ses)
+func (p pool) del(ses maybeSession) {
+	delete(p, ses.s)
 }
 
-func (s spool) alive() bool {
-	return len(s) > 0
+func (p pool) alive() bool {
+	return len(p) > 0
 }
