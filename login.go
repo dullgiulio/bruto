@@ -38,8 +38,8 @@ func (f *filelines) load(name string) error {
 	return scanner.Err()
 }
 
-type logins struct{
-	ch chan login
+type logins struct {
+	ch        chan login
 	usernames filelines
 	passwords filelines
 }
@@ -48,7 +48,7 @@ func makeLogins() *logins {
 	return &logins{
 		usernames: makeFilelines(),
 		passwords: makeFilelines(),
-		ch: make(chan login),
+		ch:        make(chan login),
 	}
 }
 

@@ -3,6 +3,8 @@ package bruto
 import (
 	"fmt"
 	"io"
+	"log"
+	"time"
 )
 
 type broken chan login
@@ -13,7 +15,7 @@ func makeBroken() broken {
 
 func (b broken) writeTo(w io.Writer) {
 	for l := range b {
-		fmt.Fprintf(w, "%s\n", &l)
+		fmt.Fprintf(w, "BROKEN: %s\n", &l)
 	}
 }
 
@@ -67,11 +69,11 @@ func (r *Runner) startWorkers(n int) {
 func (r *Runner) Run(w io.Writer, workers int) {
 	var noPwd bool
 	if err := r.logins.usernames.load("usernames.txt"); err != nil {
-		fmt.Printf("Error: %s\n", err)
+		log.Printf("Error: %s", err)
 		return
 	}
 	if err := r.logins.passwords.load("passwords.txt"); err != nil {
-		fmt.Printf("Error: %s\n", err)
+		log.Printf("Error: %s", err)
 		return
 	}
 	// Generate username/password pairs and signal when there are no more
@@ -84,16 +86,29 @@ func (r *Runner) Run(w io.Writer, workers int) {
 		select {
 		case s := <-r.sessions:
 			if _, ok := s.(*sessionError); !ok {
-				fmt.Printf("Error: %s\n", s)
+				log.Printf("Error: %s", s)
 				break
 			}
 			se := s.(*sessionError)
-			if !se.fatal() {
+			if se.ready() {
+				log.Printf("Starting attempt...")
+				// Sets the time for future deltas
+				r.pool.add(se.s)
+				break
+			}
+			if se.attempt() {
+				t := r.pool[se.s]
+				d := time.Now().Sub(t)
+				log.Printf("Attempt took: %s", &d)
 				break
 			}
 			// TODO: Detect the error rate here. If high, don't start new workes, exit.
 			if !se.finished() {
-				fmt.Printf("Error: %s\n", s)
+				log.Printf("Error: %s", s)
+				// For not return if the error is at initialization
+				if t, ok := r.pool[se.s]; ok && t.IsZero() {
+					return
+				}
 			}
 			// Remove a worker from the pool if it had an error and it's dead
 			r.pool.del(se)

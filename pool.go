@@ -1,13 +1,16 @@
 package bruto
 
-type pool map[*session]struct{}
+import "time"
+
+// time represents the ready() state
+type pool map[*session]time.Time
 
 func newPool() pool {
-	return pool(make(map[*session]struct{}))
+	return pool(make(map[*session]time.Time))
 }
 
 func (p pool) add(ses *session) {
-	p[ses] = struct{}{}
+	p[ses] = time.Now()
 }
 
 func (p pool) del(ses *sessionError) {

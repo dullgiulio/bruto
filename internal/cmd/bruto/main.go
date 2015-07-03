@@ -16,5 +16,5 @@ func main() {
 		os.Exit(1)
 	}
 	runner := bruto.NewRunner(host)
-	runner.Run(os.Stdout, 1)
+	runner.Run(os.Stdout, 4)
 }
