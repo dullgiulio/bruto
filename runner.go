@@ -5,12 +5,15 @@ import (
 	"io"
 	"log"
 	"time"
+
+	"github.com/dullgiulio/bruto/backend/typo3"
+	"github.com/dullgiulio/bruto/gen"
 )
 
-type broken chan login
+type broken chan gen.Login
 
 func makeBroken() broken {
-	return broken(make(chan login))
+	return broken(make(chan gen.Login))
 }
 
 func (b broken) writeTo(w io.Writer) {
@@ -20,14 +23,14 @@ func (b broken) writeTo(w io.Writer) {
 }
 
 type Runner struct {
-	// URLs generator
-	domain urls
+	// Target host domain
+	host string
 	// Receiver of session worker events
 	sessions chan error
 	// Signal that the login pair generator has finished
 	pwdOver chan struct{}
 	// Login pair generator
-	logins *logins
+	logins *gen.Logins
 	// Receiver for successful login attempts
 	broken broken
 	// Pool of session workers
@@ -36,24 +39,25 @@ type Runner struct {
 
 func NewRunner(host string) *Runner {
 	return &Runner{
-		domain:   urls(host),
+		host:     host,
 		sessions: make(chan error),
 		pwdOver:  make(chan struct{}),
 		broken:   makeBroken(),
-		logins:   makeLogins(),
+		logins:   gen.NewLogins(),
 		pool:     newPool(),
 	}
 }
 
 // Utility to create a new session
 func (r *Runner) makeSession() {
-	s := newSession(r.domain, r.sessions, r.logins.ch, r.broken)
+	// TODO: Type comes from backend provier according to string name
+	s := newSession(typo3.New(), r.host, r.sessions, r.logins.Chan(), r.broken)
 	r.pool.add(s)
 	go s.run()
 }
 
 func (r *Runner) generateLogins() {
-	r.logins.generate()
+	r.logins.Generate()
 	// Signal that we have no more passwords to try
 	r.pwdOver <- struct{}{}
 	close(r.pwdOver)
@@ -68,11 +72,8 @@ func (r *Runner) startWorkers(n int) {
 
 func (r *Runner) Run(w io.Writer, workers int) {
 	var noPwd bool
-	if err := r.logins.usernames.load("usernames.txt"); err != nil {
-		log.Printf("Error: %s", err)
-		return
-	}
-	if err := r.logins.passwords.load("passwords.txt"); err != nil {
+	// TODO: This comes from flags
+	if err := r.logins.Load("usernames.txt", "passwords.txt"); err != nil {
 		log.Printf("Error: %s", err)
 		return
 	}
@@ -102,7 +103,6 @@ func (r *Runner) Run(w io.Writer, workers int) {
 				log.Printf("Attempt took: %s", &d)
 				break
 			}
-			// TODO: Detect the error rate here. If high, don't start new workes, exit.
 			if !se.finished() {
 				log.Printf("Error: %s", s)
 				// For not return if the error is at initialization

@@ -3,13 +3,13 @@ package bruto
 import "time"
 
 // time represents the ready() state
-type pool map[*session]time.Time
+type pool map[*Session]time.Time
 
 func newPool() pool {
-	return pool(make(map[*session]time.Time))
+	return pool(make(map[*Session]time.Time))
 }
 
-func (p pool) add(ses *session) {
+func (p pool) add(ses *Session) {
 	p[ses] = time.Now()
 }
 

@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	// TODO: Implement flags
 	flag.Parse()
 	host := flag.Arg(0)
 	if host == "" {

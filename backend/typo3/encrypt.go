@@ -1,4 +1,4 @@
-package bruto
+package typo3
 
 import (
 	"crypto/rand"
