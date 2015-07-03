@@ -21,11 +21,11 @@ type Runner struct {
 	// URLs generator
 	domain urls
 	// Receiver of session worker events
-	sessions chan maybeSession
+	sessions chan error
 	// Signal that the login pair generator has finished
 	pwdOver chan struct{}
 	// Login pair generator
-	logins logins
+	logins *logins
 	// Receiver for successful login attempts
 	broken broken
 	// Pool of session workers
@@ -35,7 +35,7 @@ type Runner struct {
 func NewRunner(host string) *Runner {
 	return &Runner{
 		domain:   urls(host),
-		sessions: make(chan maybeSession),
+		sessions: make(chan error),
 		pwdOver:  make(chan struct{}),
 		broken:   makeBroken(),
 		logins:   makeLogins(),
@@ -45,7 +45,7 @@ func NewRunner(host string) *Runner {
 
 // Utility to create a new session
 func (r *Runner) makeSession() {
-	s := newSession(r.domain, r.sessions, r.logins, r.broken)
+	s := newSession(r.domain, r.sessions, r.logins.ch, r.broken)
 	r.pool.add(s)
 	go s.run()
 }
@@ -66,6 +66,14 @@ func (r *Runner) startWorkers(n int) {
 
 func (r *Runner) Run(w io.Writer, workers int) {
 	var noPwd bool
+	if err := r.logins.usernames.load("usernames.txt"); err != nil {
+		fmt.Printf("Error: %s\n", err)
+		return
+	}
+	if err := r.logins.passwords.load("passwords.txt"); err != nil {
+		fmt.Printf("Error: %s\n", err)
+		return
+	}
 	// Generate username/password pairs and signal when there are no more
 	go r.generateLogins()
 	// Print broken login pairs to stdout
@@ -75,16 +83,20 @@ func (r *Runner) Run(w io.Writer, workers int) {
 	for {
 		select {
 		case s := <-r.sessions:
-			// Currently we ignore the signal that a worker is ready
-			if s.err == nil {
+			if _, ok := s.(*sessionError); !ok {
+				fmt.Printf("Error: %s\n", s)
 				break
 			}
-			if s.err != errSessionOver {
-				// TODO: Detect the error rate here. If high, don't start new workes, exit.
-				fmt.Printf("Error: %s\n", s.err)
+			se := s.(*sessionError)
+			if !se.fatal() {
+				break
+			}
+			// TODO: Detect the error rate here. If high, don't start new workes, exit.
+			if !se.finished() {
+				fmt.Printf("Error: %s\n", s)
 			}
 			// Remove a worker from the pool if it had an error and it's dead
-			r.pool.del(s)
+			r.pool.del(se)
 			// If no more sessions are working
 			if !r.pool.alive() {
 				// If we finished the passwords to try, exit

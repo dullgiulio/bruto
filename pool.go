@@ -10,7 +10,7 @@ func (p pool) add(ses *session) {
 	p[ses] = struct{}{}
 }
 
-func (p pool) del(ses maybeSession) {
+func (p pool) del(ses *sessionError) {
 	delete(p, ses.s)
 }
 

