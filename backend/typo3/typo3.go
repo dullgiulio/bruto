@@ -36,8 +36,7 @@ func (t *T) Setup(domain string, conn *backend.HTTP) {
 	sp.Set("interface", "backend")
 }
 
-func (t *T) Open(conn *backend.HTTP) error {
-	// TODO: conn.Client.Timeout = ...
+func (t *T) callRsaAjax(conn *backend.HTTP) error {
 	req, err := conn.Get(t.urls.ajax())
 	if err != nil {
 		return err
@@ -47,31 +46,63 @@ func (t *T) Open(conn *backend.HTTP) error {
 	if err != nil {
 		return err
 	}
-	// Don't care about body, just get the header
-	io.Copy(ioutil.Discard, resp.Body)
-	resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return errors.New(fmt.Sprintf("Invalid status code for AJAX call: %s", resp.Status))
 	}
+	// Don't care about body, just get the header
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
 	xjson := resp.Header.Get("X-JSON")
 	if xjson == "" {
 		return errors.New("Response to AJAX call contained no JSON")
 	}
-	// Stupid and inefficient unmarshalling of JSON, for now
 	if err := json.Unmarshal([]byte(xjson), &t.enc); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (t *T) Open(conn *backend.HTTP) error {
+	// TODO: conn.Client.Timeout = ...
+	req, err := conn.Get(t.urls.login())
+	if err != nil {
+		return err
+	}
+	resp, err := conn.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		return errors.New(fmt.Sprintf("Invalid status code for login page: %s", resp.Status))
+	}
+	var rsaAjax bool
+	err = t.enc.pkFromHTML(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		switch err {
+		case errRsaNotFound:
+			rsaAjax = true
+		default:
+			return err
+		}
+	}
+	if rsaAjax {
+		if err := t.callRsaAjax(conn); err != nil {
+			return err
+		}
 	}
 	return t.enc.seed()
 }
 
 func (t *T) Try(conn *backend.HTTP, l gen.Login) (success bool, err error) {
 	// Encrypt password
-	data, err := t.enc.encrypt(l.Pass)
+	pass, err := t.enc.encrypt(l.Pass)
 	if err != nil {
 		return
 	}
+	fmt.Printf("'%s'\n", l.Pass)
 	// Set request specific POST values
-	conn.PostVals.Set("userident", data)
+	conn.PostVals.Set("userident", pass)
 	conn.PostVals.Set("username", l.User)
 	// Post login form
 	req, err := conn.Post(t.urls.login(), &conn.PostVals)
