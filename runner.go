@@ -31,6 +31,8 @@ type Runner struct {
 	pwdOver chan struct{}
 	// Login pair generator
 	logins *gen.Logins
+	// Generate user agent strings
+	agents gen.Agents
 	// Receiver for successful login attempts
 	broken broken
 	// Pool of session workers
@@ -44,6 +46,7 @@ func NewRunner(host string) *Runner {
 		pwdOver:  make(chan struct{}),
 		broken:   makeBroken(),
 		logins:   gen.NewLogins(),
+		agents:   gen.NewAgents(),
 		pool:     newPool(),
 	}
 }
@@ -51,8 +54,7 @@ func NewRunner(host string) *Runner {
 // Utility to create a new session
 func (r *Runner) makeSession() {
 	// TODO: Type comes from backend provier according to string name
-	s := newSession(typo3.New(), r.host, r.sessions, r.logins.Chan(), r.broken)
-	r.pool.add(s)
+	s := newSession(typo3.New(), r.host, r.sessions, r.logins.Chan(), r.agents.Chan(), r.broken)
 	go s.run()
 }
 
@@ -79,6 +81,8 @@ func (r *Runner) Run(w io.Writer, workers int) {
 	}
 	// Generate username/password pairs and signal when there are no more
 	go r.generateLogins()
+	// Generate random user-agent strings forever
+	go r.agents.Generate()
 	// Print broken login pairs to stdout
 	go r.broken.writeTo(w)
 	// Start some workers
@@ -106,7 +110,7 @@ func (r *Runner) Run(w io.Writer, workers int) {
 			if !se.finished() {
 				log.Printf("Error: %s", s)
 				// For not return if the error is at initialization
-				if t, ok := r.pool[se.s]; ok && t.IsZero() {
+				if t, ok := r.pool[se.s]; !ok || t.IsZero() {
 					return
 				}
 			}

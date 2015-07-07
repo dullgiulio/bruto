@@ -26,7 +26,7 @@ func (e *encrypter) seed() (err error) {
 	if _, ok := mod.SetString(e.Mod, 16); !ok {
 		return errors.New(fmt.Sprintf("Cannot parse MOD from hexadecimal value: %s", e.Mod))
 	}
-	if exp, err = strconv.ParseInt(e.Exp, 10, 0); err != nil {
+	if exp, err = strconv.ParseInt(e.Exp, 16, 0); err != nil {
 		return
 	}
 	e.pk.N = &mod

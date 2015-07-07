@@ -50,18 +50,21 @@ type Session struct {
 	// ready is closed when the session is ready, otherwise
 	// an error is sent then the channel is closed.
 	sessions chan<- error
+	// Generator of user agent strings
+	agents <-chan string
 	// password channel generates passwords to try
 	logins <-chan gen.Login
 	// broken is the channel where sucessful logins are sent
 	broken chan<- gen.Login
 }
 
-func newSession(be Backend, domain string, sessions chan<- error, logins <-chan gen.Login, broken chan<- gen.Login) *Session {
+func newSession(be Backend, domain string, sessions chan<- error, logins <-chan gen.Login, agents <-chan string, broken chan<- gen.Login) *Session {
 	s := &Session{
 		conn:     backend.NewHTTP(),
 		be:       be,
 		sessions: sessions,
 		logins:   logins,
+		agents:   agents,
 		broken:   broken,
 	}
 	s.be.Setup(domain, s.conn)
@@ -81,6 +84,8 @@ func (s *Session) init() error {
 	if err := s.conn.Init(); err != nil {
 		return err
 	}
+	// Set a random user-agent for this session
+	s.conn.Header.Set("User-Agent", <-s.agents)
 	return s.be.Open(s.conn)
 }
 

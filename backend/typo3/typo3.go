@@ -100,7 +100,6 @@ func (t *T) Try(conn *backend.HTTP, l gen.Login) (success bool, err error) {
 	if err != nil {
 		return
 	}
-	fmt.Printf("'%s'\n", l.Pass)
 	// Set request specific POST values
 	conn.PostVals.Set("userident", pass)
 	conn.PostVals.Set("username", l.User)
@@ -109,7 +108,7 @@ func (t *T) Try(conn *backend.HTTP, l gen.Login) (success bool, err error) {
 	if err != nil {
 		return
 	}
-	req.Header.Set("Referer", t.urls.referer())
+	conn.Header.Set("Referer", t.urls.referer())
 	resp, err := conn.Do(req)
 	if err != nil {
 		return

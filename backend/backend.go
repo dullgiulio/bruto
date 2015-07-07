@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,10 +11,9 @@ import (
 	"strings"
 )
 
-// TODO: This comes from a generator
-const userAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0"
-
 type HTTP struct {
+	// User-provided headers
+	Header http.Header
 	// Session connection
 	Client *http.Client
 	// Convenience shared POST values
@@ -24,8 +24,10 @@ type HTTP struct {
 
 func NewHTTP() *HTTP {
 	return &HTTP{
+		Header:   http.Header(make(map[string][]string)),
 		PostVals: url.Values{},
 		Client:   &http.Client{},
+		//	debug:    os.Stdout,
 	}
 }
 
@@ -35,21 +37,32 @@ func (h *HTTP) Init() error {
 		return err
 	}
 	h.Client.Jar = jar
+	h.Client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		h.prepareReq(req)
+		return nil
+	}
 	return nil
 }
 
 func (h *HTTP) prepareReq(req *http.Request) *http.Request {
-	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Cache-Control", "max-age=0")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 	for _, cookie := range h.Client.Jar.Cookies(req.URL) {
 		req.AddCookie(cookie)
 	}
+	// Override defaults with request specific headers
+	for k, v := range h.Header {
+		// XXX: Using only one value per key
+		req.Header.Set(k, v[0])
+	}
 	return req
 }
 
 func (h *HTTP) Do(req *http.Request) (*http.Response, error) {
-	req = h.prepareReq(req)
+	h.prepareReq(req)
 	if h.debug != nil {
 		b, err := httputil.DumpRequestOut(req, true)
 		if err != nil {
