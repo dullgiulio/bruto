@@ -37,11 +37,14 @@ func (l *Logins) Chan() <-chan Login {
 }
 
 func (l *Logins) Generate() {
-	tot := len(l.usernames) * len(l.passwords)
-	for i := 0; i < tot; i++ {
-		l.ch <- Login{
-			User: l.usernames[i%len(l.usernames)],
-			Pass: l.passwords[i%len(l.passwords)],
+	// Try each a new username as soon as possible as they might not exist
+	// and they are probably less than the passwords.
+	for p := range l.passwords {
+		for u := range l.usernames {
+			l.ch <- Login{
+				User: l.usernames[u],
+				Pass: l.passwords[p],
+			}
 		}
 	}
 	close(l.ch)
