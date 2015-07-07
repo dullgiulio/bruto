@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/dullgiulio/bruto/backend"
 	"github.com/dullgiulio/bruto/gen"
@@ -63,17 +64,21 @@ func (t *T) callRsaAjax(conn *backend.HTTP) error {
 }
 
 func (t *T) Open(conn *backend.HTTP) error {
-	// TODO: conn.Client.Timeout = ...
+	return nil // Not needed, each attempt needs a new session.
+}
+
+func (t *T) Try(conn *backend.HTTP, l gen.Login) (success bool, err error) {
+	conn.Client.Timeout = 10 * time.Second // TODO: Make configurable in flags?
 	req, err := conn.Get(t.urls.login())
 	if err != nil {
-		return err
+		return false, err
 	}
 	resp, err := conn.Do(req)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if resp.StatusCode != 200 {
-		return errors.New(fmt.Sprintf("Invalid status code for login page: %s", resp.Status))
+		return false, errors.New(fmt.Sprintf("Invalid status code for login page: %s", resp.Status))
 	}
 	var rsaAjax bool
 	err = t.enc.pkFromHTML(resp.Body)
@@ -83,18 +88,17 @@ func (t *T) Open(conn *backend.HTTP) error {
 		case errRsaNotFound:
 			rsaAjax = true
 		default:
-			return err
+			return
 		}
 	}
 	if rsaAjax {
-		if err := t.callRsaAjax(conn); err != nil {
-			return err
+		if err = t.callRsaAjax(conn); err != nil {
+			return
 		}
 	}
-	return t.enc.seed()
-}
-
-func (t *T) Try(conn *backend.HTTP, l gen.Login) (success bool, err error) {
+	if err = t.enc.seed(); err != nil {
+		return
+	}
 	// Encrypt password
 	pass, err := t.enc.encrypt(l.Pass)
 	if err != nil {
@@ -104,12 +108,12 @@ func (t *T) Try(conn *backend.HTTP, l gen.Login) (success bool, err error) {
 	conn.PostVals.Set("userident", pass)
 	conn.PostVals.Set("username", l.User)
 	// Post login form
-	req, err := conn.Post(t.urls.login(), &conn.PostVals)
+	req, err = conn.Post(t.urls.login(), &conn.PostVals)
 	if err != nil {
 		return
 	}
 	conn.Header.Set("Referer", t.urls.referer())
-	resp, err := conn.Do(req)
+	resp, err = conn.Do(req)
 	if err != nil {
 		return
 	}
