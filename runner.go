@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/dullgiulio/bruto/backend/typo3"
 	"github.com/dullgiulio/bruto/gen"
 )
 
@@ -23,6 +22,8 @@ func (b broken) writeTo(w io.Writer) {
 }
 
 type Runner struct {
+	// Function that generates a new instance of Backend interface
+	be func() Backend
 	// Target host domain
 	host string
 	// Receiver of session worker events
@@ -39,8 +40,9 @@ type Runner struct {
 	pool pool
 }
 
-func NewRunner(host string) *Runner {
+func NewRunner(be func() Backend, host string) *Runner {
 	return &Runner{
+		be:       be,
 		host:     host,
 		sessions: make(chan error),
 		pwdOver:  make(chan struct{}),
@@ -53,8 +55,7 @@ func NewRunner(host string) *Runner {
 
 // Utility to create a new session
 func (r *Runner) makeSession() {
-	// TODO: Type comes from backend provier according to string name
-	s := newSession(typo3.New(), r.host, r.sessions, r.logins.Chan(), r.agents.Chan(), r.broken)
+	s := newSession(r.be(), r.host, r.sessions, r.logins.Chan(), r.agents.Chan(), r.broken)
 	go s.run()
 }
 

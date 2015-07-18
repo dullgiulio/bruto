@@ -36,7 +36,6 @@ func (e *encrypter) seed() (err error) {
 
 func (e *encrypter) encrypt(pass string) (b string, err error) {
 	if e.rand == nil {
-		// TODO: Make sure this is fast enough. Pseudo is fine for us.
 		e.rand = rand.Reader
 	}
 	var data []byte

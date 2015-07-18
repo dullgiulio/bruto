@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
-	"time"
 
 	"github.com/dullgiulio/bruto/backend"
 	"github.com/dullgiulio/bruto/gen"
@@ -68,7 +67,7 @@ func (t *T) Open(conn *backend.HTTP) error {
 }
 
 func (t *T) Try(conn *backend.HTTP, l gen.Login) (success bool, err error) {
-	conn.Client.Timeout = 10 * time.Second // TODO: Make configurable in flags?
+	conn.Client.Timeout = backend.Config.Timeout
 	req, err := conn.Get(t.urls.login())
 	if err != nil {
 		return false, err
