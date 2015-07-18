@@ -9,7 +9,6 @@ type Conf struct {
 var Config *Conf
 
 func init() {
-	Config = &Conf{
-		Timeout: 10 * time.Second,
-	}
+	// Relay on the flags to setup default variables.
+	Config = &Conf{}
 }

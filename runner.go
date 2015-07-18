@@ -24,6 +24,8 @@ func (b broken) writeTo(w io.Writer) {
 type Runner struct {
 	// Function that generates a new instance of Backend interface
 	be func() Backend
+	// Filenames of users and passwords files
+	userf, passf string
 	// Target host domain
 	host string
 	// Receiver of session worker events
@@ -40,10 +42,12 @@ type Runner struct {
 	pool pool
 }
 
-func NewRunner(be func() Backend, host string) *Runner {
+func NewRunner(be func() Backend, host string, userf, passf string) *Runner {
 	return &Runner{
 		be:       be,
 		host:     host,
+		userf:    userf,
+		passf:    passf,
 		sessions: make(chan error),
 		pwdOver:  make(chan struct{}),
 		broken:   makeBroken(),
@@ -75,8 +79,7 @@ func (r *Runner) startWorkers(n int) {
 
 func (r *Runner) Run(w io.Writer, workers int) {
 	var noPwd bool
-	// TODO: This comes from flags
-	if err := r.logins.Load("usernames.txt", "passwords.txt"); err != nil {
+	if err := r.logins.Load(r.userf, r.passf); err != nil {
 		log.Printf("Error: %s", err)
 		return
 	}
