@@ -50,10 +50,10 @@ func main() {
 		be                 beType
 		passfile, userfile string
 	)
-	flag.Var(&be, "type", "Type of backend to use")
-	flag.DurationVar(&backend.Config.Timeout, "timeout", 10*time.Second, "Timeout when performing HTTP requests")
-	flag.StringVar(&passfile, "passwords", "passwords.txt", "File containing the passwords to try, one per line")
-	flag.StringVar(&userfile, "usernames", "usernames.txt", "File containing the usernames to try, one per line")
+	flag.Var(&be, "type", "Type of `BACKEND` to use")
+	flag.DurationVar(&backend.Config.Timeout, "timeout", 10*time.Second, "Timeout `N` when performing HTTP requests")
+	flag.StringVar(&passfile, "passwords", "passwords.txt", "Specify which `FILE` contains the passwords to try, one per line")
+	flag.StringVar(&userfile, "usernames", "usernames.txt", "Specify which `FILE` containes the usernames to try, one per line")
 	flag.Parse()
 	host := flag.Arg(0)
 	if host == "" {
