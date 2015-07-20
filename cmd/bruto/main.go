@@ -48,10 +48,12 @@ var Usage = func() {
 func main() {
 	var (
 		be                 beType
+		workers			   int
 		passfile, userfile string
 	)
 	flag.Var(&be, "type", "Type of `BACKEND` to use")
 	flag.DurationVar(&backend.Config.Timeout, "timeout", 10*time.Second, "Timeout `N` when performing HTTP requests")
+	flag.IntVar(&workers, "workers", 5, "Number `N` of workers to run in parallel")
 	flag.StringVar(&passfile, "passwords", "passwords.txt", "Specify which `FILE` contains the passwords to try, one per line")
 	flag.StringVar(&userfile, "usernames", "usernames.txt", "Specify which `FILE` containes the usernames to try, one per line")
 	flag.Parse()
@@ -61,5 +63,5 @@ func main() {
 		os.Exit(1)
 	}
 	runner := bruto.NewRunner(be.backend, host, userfile, passfile)
-	runner.Run(os.Stdout, 1)
+	runner.Run(os.Stdout, workers)
 }
