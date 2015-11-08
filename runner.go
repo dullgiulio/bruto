@@ -42,6 +42,8 @@ type Runner struct {
 	pool pool
 }
 
+// NewRunner makes a runner with a backend generator a host and two files
+// containing the usernames and password to try.
 func NewRunner(be func() Backend, host string, userf, passf string) *Runner {
 	return &Runner{
 		be:       be,
@@ -63,6 +65,7 @@ func (r *Runner) makeSession() {
 	go s.run()
 }
 
+// Generate login/password pairs to try
 func (r *Runner) generateLogins() {
 	r.logins.Generate()
 	// Signal that we have no more passwords to try
@@ -70,6 +73,7 @@ func (r *Runner) generateLogins() {
 	close(r.pwdOver)
 }
 
+// Start all connected workers
 func (r *Runner) startWorkers(n int) {
 	// Make some sessions to start
 	for i := 0; i < n; i++ {
@@ -77,6 +81,7 @@ func (r *Runner) startWorkers(n int) {
 	}
 }
 
+// Run starts N workers and writes broken login/password to w.
 func (r *Runner) Run(w io.Writer, workers int) {
 	var noPwd bool
 	if err := r.logins.Load(r.userf, r.passf); err != nil {
